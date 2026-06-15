@@ -12,7 +12,7 @@ from PySide6.QtCore import Qt, QTimer, Slot, QSize
 from PySide6.QtGui import QPixmap, QIcon, QImage, QPainter
 
 from styles import QSS_STYLE
-from icons import get_svg_icon
+from icons import get_svg_icon, HAS_SVG
 from video_processor import VideoInfoWorker, FrameExtractWorker, GifExportWorker
 
 class FrameCardWidget(QWidget):
@@ -53,11 +53,11 @@ class FrameCardWidget(QWidget):
         meta_layout.setSpacing(2)
         
         self.lbl_num = QLabel(f"Frame #{self.frame_data['index'] + 1}", self)
-        self.lbl_num.setStyleSheet("font-weight: bold; color: #4f46e5;")
+        self.lbl_num.setStyleSheet("font-weight: bold; color: #a5b4fc;")
         meta_layout.addWidget(self.lbl_num)
 
         self.lbl_time = QLabel(f"T: {self.frame_data['timestamp']:.2f}s", self)
-        self.lbl_time.setStyleSheet("color: #64748b; font-size: 11px;")
+        self.lbl_time.setStyleSheet("color: #94a3b8; font-size: 11px;")
         meta_layout.addWidget(self.lbl_time)
 
         layout.addLayout(meta_layout)
@@ -66,12 +66,19 @@ class FrameCardWidget(QWidget):
         # Delete Button
         self.btn_del = QPushButton(self)
         self.btn_del.setFixedSize(24, 24)
-        self.btn_del.setIcon(get_svg_icon("trash", size=QSize(14, 14), color="#ef4444"))
         self.btn_del.setToolTip("Xóa frame này")
-        self.btn_del.setStyleSheet(
-            "QPushButton { background-color: transparent; border: none; }"
-            "QPushButton:hover { background-color: rgba(239, 68, 68, 0.15); border-radius: 4px; }"
-        )
+        if HAS_SVG:
+            self.btn_del.setIcon(get_svg_icon("trash", size=QSize(14, 14), color="#f87171"))
+            self.btn_del.setStyleSheet(
+                "QPushButton { background-color: transparent; border: none; }"
+                "QPushButton:hover { background-color: rgba(248, 113, 113, 0.15); border-radius: 4px; }"
+            )
+        else:
+            self.btn_del.setText("✕")
+            self.btn_del.setStyleSheet(
+                "QPushButton { background-color: transparent; border: none; color: #f87171; font-weight: bold; font-size: 14px; }"
+                "QPushButton:hover { background-color: rgba(248, 113, 113, 0.15); border-radius: 4px; }"
+            )
         self.btn_del.clicked.connect(self.on_delete_clicked)
         layout.addWidget(self.btn_del)
 
@@ -222,13 +229,13 @@ class MainWindow(QMainWindow):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(6)
         
-        self.btn_select_all = QPushButton(" Chọn Hết", self)
-        self.btn_select_all.setIcon(get_svg_icon("check_all", size=QSize(16, 16), color="#4f46e5"))
+        self.btn_select_all = QPushButton(" Chọn Hết" if HAS_SVG else "✓ Chọn Hết", self)
+        self.btn_select_all.setIcon(get_svg_icon("check_all", size=QSize(16, 16), color="#818cf8"))
         self.btn_select_all.clicked.connect(self.select_all_frames)
         btn_layout.addWidget(self.btn_select_all)
         
-        self.btn_deselect_all = QPushButton(" Bỏ Chọn", self)
-        self.btn_deselect_all.setIcon(get_svg_icon("uncheck_all", size=QSize(16, 16), color="#64748b"))
+        self.btn_deselect_all = QPushButton(" Bỏ Chọn" if HAS_SVG else "☐ Bỏ Chọn", self)
+        self.btn_deselect_all.setIcon(get_svg_icon("uncheck_all", size=QSize(16, 16), color="#94a3b8"))
         self.btn_deselect_all.clicked.connect(self.deselect_all_frames)
         btn_layout.addWidget(self.btn_deselect_all)
         
@@ -241,7 +248,7 @@ class MainWindow(QMainWindow):
 
         # Stats info
         self.lbl_frames_count = QLabel("Tổng số frame: 0", self)
-        self.lbl_frames_count.setStyleSheet("color: #64748b; font-size: 12px;")
+        self.lbl_frames_count.setStyleSheet("color: #94a3b8; font-size: 12px;")
         layout.addWidget(self.lbl_frames_count)
 
     def init_center_panel(self):
@@ -261,7 +268,7 @@ class MainWindow(QMainWindow):
 
         # Large display area
         self.preview_label = AspectRatioPixmapLabel(self)
-        self.preview_label.setStyleSheet("background-color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px;")
+        self.preview_label.setStyleSheet("background-color: #0c0c14; border: 1px solid #334155; border-radius: 8px;")
         self.preview_label.setMinimumSize(400, 300)
         layout.addWidget(self.preview_label, 1) # Expand factor 1
 
@@ -278,11 +285,14 @@ class MainWindow(QMainWindow):
 
         self.btn_prev = QPushButton(self)
         self.btn_prev.setFixedSize(40, 32)
-        self.btn_prev.setIcon(get_svg_icon("prev", size=QSize(16, 16), color="#4f46e5"))
+        if HAS_SVG:
+            self.btn_prev.setIcon(get_svg_icon("prev", size=QSize(16, 16), color="#818cf8"))
+        else:
+            self.btn_prev.setText("⏮")
         self.btn_prev.clicked.connect(self.prev_frame)
         playback_layout.addWidget(self.btn_prev)
 
-        self.btn_play = QPushButton(" Chạy", self)
+        self.btn_play = QPushButton(" Chạy" if HAS_SVG else "▶ Chạy", self)
         self.btn_play.setObjectName("primaryButton")
         self.btn_play.setIcon(get_svg_icon("play", size=QSize(16, 16), color="#ffffff"))
         self.btn_play.setFixedSize(120, 32)
@@ -291,7 +301,10 @@ class MainWindow(QMainWindow):
 
         self.btn_next = QPushButton(self)
         self.btn_next.setFixedSize(40, 32)
-        self.btn_next.setIcon(get_svg_icon("next", size=QSize(16, 16), color="#4f46e5"))
+        if HAS_SVG:
+            self.btn_next.setIcon(get_svg_icon("next", size=QSize(16, 16), color="#818cf8"))
+        else:
+            self.btn_next.setText("⏭")
         self.btn_next.clicked.connect(self.next_frame)
         playback_layout.addWidget(self.btn_next)
 
@@ -300,15 +313,15 @@ class MainWindow(QMainWindow):
         # Status of preview
         self.lbl_preview_status = QLabel("Frame: 0/0 | Time: 0.00s", self)
         self.lbl_preview_status.setAlignment(Qt.AlignCenter)
-        self.lbl_preview_status.setStyleSheet("color: #64748b;")
+        self.lbl_preview_status.setStyleSheet("color: #cbd5e1;")
         layout.addWidget(self.lbl_preview_status)
 
     def update_play_button_state(self, playing):
         if playing:
-            self.btn_play.setText(" Tạm Dừng")
+            self.btn_play.setText(" Tạm Dừng" if HAS_SVG else "⏸ Tạm Dừng")
             self.btn_play.setIcon(get_svg_icon("pause", size=QSize(16, 16), color="#ffffff"))
         else:
-            self.btn_play.setText(" Chạy")
+            self.btn_play.setText(" Chạy" if HAS_SVG else "▶ Chạy")
             self.btn_play.setIcon(get_svg_icon("play", size=QSize(16, 16), color="#ffffff"))
 
     def init_right_panel(self):
@@ -338,7 +351,7 @@ class MainWindow(QMainWindow):
         video_layout = QVBoxLayout(grp_video)
         video_layout.setSpacing(8)
         
-        self.btn_load_video = QPushButton(" Chọn Video...", self)
+        self.btn_load_video = QPushButton(" Chọn Video..." if HAS_SVG else "🎥 Chọn Video...", self)
         self.btn_load_video.setObjectName("primaryButton")
         self.btn_load_video.setIcon(get_svg_icon("video", size=QSize(16, 16), color="#ffffff"))
         self.btn_load_video.clicked.connect(self.browse_video)
@@ -346,11 +359,11 @@ class MainWindow(QMainWindow):
 
         self.lbl_video_path = QLabel("Chưa chọn file", self)
         self.lbl_video_path.setWordWrap(True)
-        self.lbl_video_path.setStyleSheet("color: #64748b; font-size: 11px;")
+        self.lbl_video_path.setStyleSheet("color: #94a3b8; font-size: 11px;")
         video_layout.addWidget(self.lbl_video_path)
 
         self.lbl_video_meta = QLabel("Thời lượng: --\nĐộ phân giải: --\nFPS gốc: --", self)
-        self.lbl_video_meta.setStyleSheet("color: #334155; font-size: 12px;")
+        self.lbl_video_meta.setStyleSheet("color: #e2e8f0; font-size: 12px;")
         video_layout.addWidget(self.lbl_video_meta)
         
         scroll_layout.addWidget(grp_video)
@@ -389,7 +402,7 @@ class MainWindow(QMainWindow):
         grid_layout3.addWidget(self.spin_fps)
         slice_layout.addLayout(grid_layout3)
 
-        self.btn_extract = QPushButton(" Trích Xuất Frame", self)
+        self.btn_extract = QPushButton(" Trích Xuất Frame" if HAS_SVG else "✂ Trích Xuất Frame", self)
         self.btn_extract.setObjectName("primaryButton")
         self.btn_extract.setIcon(get_svg_icon("scissors", size=QSize(16, 16), color="#ffffff"))
         self.btn_extract.clicked.connect(self.start_frame_extraction)
@@ -503,7 +516,7 @@ class MainWindow(QMainWindow):
         scroll_layout.addWidget(self.grp_gif)
 
         # Export block at the bottom
-        self.btn_export = QPushButton(" XUẤT GIF CHẤT LƯỢNG CAO", self)
+        self.btn_export = QPushButton(" XUẤT GIF CHẤT LƯỢNG CAO" if HAS_SVG else "📥 XUẤT GIF CHẤT LƯỢNG CAO", self)
         self.btn_export.setEnabled(False)
         self.btn_export.setObjectName("primaryButton")
         self.btn_export.setIcon(get_svg_icon("export", size=QSize(18, 18), color="#ffffff"))
@@ -1055,12 +1068,14 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
-    # Ensure Windows taskbar displays the custom icon correctly
-    import ctypes
-    try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("kath.gifmaker.app.1")
-    except Exception:
-        pass
+    # Ensure Windows taskbar displays the custom icon correctly in dev mode
+    # In frozen (compiled EXE) mode, skipping this prevents Windows from grouping it as a separate icon.
+    if not getattr(sys, 'frozen', False):
+        import ctypes
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("kath.gifmaker.app.1")
+        except Exception:
+            pass
 
     app = QApplication(sys.argv)
     window = MainWindow()
