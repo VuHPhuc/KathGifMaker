@@ -1289,8 +1289,109 @@ class MainWindow(QMainWindow):
         self.set_status(f"⚠ Lỗi: {err_msg[:80]}", active=False)
         QMessageBox.critical(self, "Lỗi Hệ Thống", f"Đã xảy ra lỗi:\n{err_msg}")
 
+    def closeEvent(self, event):
+        # Stop preview timer if active
+        if hasattr(self, 'preview_timer') and self.preview_timer.isActive():
+            self.preview_timer.stop()
+            
+        # Cancel extraction worker if running
+        if hasattr(self, 'extract_worker') and self.extract_worker and self.extract_worker.isRunning():
+            try:
+                self.extract_worker.cancel()
+                self.extract_worker.terminate()
+                self.extract_worker.wait()
+            except Exception:
+                pass
+
+        # Terminate info worker if running
+        if hasattr(self, 'info_worker') and self.info_worker and self.info_worker.isRunning():
+            try:
+                self.info_worker.terminate()
+                self.info_worker.wait()
+            except Exception:
+                pass
+
+        # Terminate export worker if running
+        if hasattr(self, 'export_worker') and self.export_worker and self.export_worker.isRunning():
+            try:
+                self.export_worker.terminate()
+                self.export_worker.wait()
+            except Exception:
+                pass
+
+        # Clean exit to prevent zombie processes
+        event.accept()
+        import os
+        os._exit(0)
+
+
+def global_exception_handler(exctype, value, tb):
+    """Global handler for uncaught exceptions to show dialog and prevent zombie process."""
+    import traceback
+    err_msg = "".join(traceback.format_exception(exctype, value, tb))
+    print(err_msg, file=sys.stderr)
+    try:
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        app = QApplication.instance() or QApplication(sys.argv)
+        QMessageBox.critical(
+            None,
+            "Lỗi Hệ Thống Nghiêm Trọng",
+            f"Đã xảy ra lỗi hệ thống nghiêm trọng:\n\n{value}\n\nChi tiết lỗi:\n{err_msg}"
+        )
+    except Exception:
+        pass
+    import os
+    os._exit(1)
+
+# System-wide Mutex reference to keep it alive during the lifetime of the process
+_app_mutex = None
+
+def check_single_instance():
+    global _app_mutex
+    # If launched by launcher, the mutex is already held by launcher
+    if os.environ.get("KATHGIFMAKER_MUTEX_HELD") == "1":
+        return True
+
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            mutex_name = "Local\\KathGifMaker_SingleInstance_Mutex"
+            _app_mutex = ctypes.windll.kernel32.CreateMutexW(None, True, mutex_name)
+            last_error = ctypes.windll.kernel32.GetLastError()
+            if last_error == 183:  # ERROR_ALREADY_EXISTS
+                if _app_mutex:
+                    ctypes.windll.kernel32.CloseHandle(_app_mutex)
+                    _app_mutex = None
+                return False
+        except Exception:
+            pass
+    else:
+        try:
+            from PySide6.QtCore import QLockFile, QDir
+            lock_path = os.path.join(QDir.tempPath(), "KathGifMaker.lock")
+            global _lock_file
+            _lock_file = QLockFile(lock_path)
+            if not _lock_file.tryLock(100):
+                return False
+        except Exception:
+            pass
+    return True
 
 if __name__ == "__main__":
+    # Register global exception handler
+    sys.excepthook = global_exception_handler
+
+    # Check if another instance is already running
+    if not check_single_instance():
+        app = QApplication(sys.argv)
+        QMessageBox.warning(
+            None,
+            "Ứng Dụng Đang Chạy",
+            "Ứng dụng KathGifMaker đang được chạy ở một cửa sổ khác.\n"
+            "Vui lòng đóng ứng dụng đó trước khi mở lại."
+        )
+        sys.exit(0)
+
     # Ensure Windows taskbar displays the custom icon correctly in dev mode
     # In frozen (compiled EXE) mode, skipping this prevents Windows from grouping it as a separate icon.
     if not getattr(sys, 'frozen', False):
