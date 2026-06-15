@@ -6,10 +6,10 @@ from PySide6.QtWidgets import (
     QLabel, QPushButton, QSlider, QSpinBox, QFileDialog, QListWidget,
     QListWidgetItem, QProgressBar, QCheckBox, QFrame, QMessageBox,
     QSplitter, QGroupBox, QGraphicsOpacityEffect, QScrollArea, QSizePolicy,
-    QComboBox, QRadioButton
+    QComboBox, QRadioButton, QStatusBar
 )
-from PySide6.QtCore import Qt, QTimer, Slot, QSize
-from PySide6.QtGui import QPixmap, QIcon, QImage, QPainter
+from PySide6.QtCore import Qt, QTimer, Slot, QSize, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QPixmap, QIcon, QImage, QPainter, QFont
 
 from styles import QSS_STYLE
 from icons import get_svg_icon, HAS_SVG
@@ -154,7 +154,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("KathGifMaker - Trình Tạo GIF Chuyên Nghiệp")
-        self.resize(1200, 800)
+        self.resize(1280, 820)
+        self.setMinimumSize(1000, 680)
         
         # Set Window Icon
         icon_path = get_resource_path("app_icon.ico")
@@ -181,16 +182,26 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
     def init_ui(self):
-        central_widget = QWidget(self)
-        self.setCentralWidget(central_widget)
-        
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        root_widget = QWidget(self)
+        self.setCentralWidget(root_widget)
+
+        root_layout = QVBoxLayout(root_widget)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
+
+        # ── App Title Bar ──────────────────────────────────────────────────
+        self.init_title_bar(root_layout)
+
+        # ── Content Area ───────────────────────────────────────────────────
+        content_widget = QWidget()
+        content_layout = QHBoxLayout(content_widget)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setSpacing(10)
+        root_layout.addWidget(content_widget, 1)
 
         # Splitter Layout
         self.splitter = QSplitter(Qt.Horizontal, self)
-        main_layout.addWidget(self.splitter)
+        content_layout.addWidget(self.splitter)
 
         # 1. Left Sidebar (Frames list)
         self.init_left_sidebar()
@@ -201,41 +212,147 @@ class MainWindow(QMainWindow):
         # 3. Right Panel (Controls & Parameters)
         self.init_right_panel()
 
-        # Set constraints on sidebar panels to prevent squishing or layout overflows
-        self.left_frame.setMinimumWidth(260)
-        self.left_frame.setMaximumWidth(360)
-        self.right_frame.setMinimumWidth(290)
-        self.right_frame.setMaximumWidth(380)
+        # Set constraints on sidebar panels
+        self.left_frame.setMinimumWidth(265)
+        self.left_frame.setMaximumWidth(370)
+        self.right_frame.setMinimumWidth(295)
+        self.right_frame.setMaximumWidth(390)
 
         # Add to splitter and set sizes
         self.splitter.addWidget(self.left_frame)
         self.splitter.addWidget(self.center_frame)
         self.splitter.addWidget(self.right_frame)
-        self.splitter.setSizes([280, 640, 280])
+        self.splitter.setSizes([290, 660, 290])
+
+        # ── Status Bar ─────────────────────────────────────────────────────
+        self.init_status_bar(root_layout)
+
+    def init_title_bar(self, parent_layout):
+        """Stylish app header bar."""
+        title_bar = QFrame()
+        title_bar.setObjectName("appTitleBar")
+        title_bar.setFixedHeight(52)
+        tb_layout = QHBoxLayout(title_bar)
+        tb_layout.setContentsMargins(16, 0, 16, 0)
+        tb_layout.setSpacing(10)
+
+        # App icon (film reel)
+        if HAS_SVG:
+            icon_lbl = QLabel()
+            icon_lbl.setFixedSize(30, 30)
+            pix = get_svg_icon("film", size=QSize(28, 28), color="#818cf8").pixmap(QSize(28, 28))
+            icon_lbl.setPixmap(pix)
+            icon_lbl.setAlignment(Qt.AlignCenter)
+            tb_layout.addWidget(icon_lbl)
+
+        # Title + subtitle
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(1)
+        text_layout.setContentsMargins(0, 0, 0, 0)
+
+        title_lbl = QLabel("KathGifMaker")
+        title_lbl.setObjectName("appTitleLabel")
+        title_lbl.setFont(QFont("Segoe UI Variable", 15, QFont.Bold))
+        text_layout.addWidget(title_lbl)
+
+        subtitle_lbl = QLabel("TRÌNH TẠO GIF CHUYÊN NGHIỆP")
+        subtitle_lbl.setObjectName("appSubtitleLabel")
+        subtitle_lbl.setFont(QFont("Segoe UI", 9))
+        text_layout.addWidget(subtitle_lbl)
+
+        tb_layout.addLayout(text_layout)
+
+        # Version badge
+        version_lbl = QLabel("v2.0")
+        version_lbl.setObjectName("appVersionBadge")
+        version_lbl.setFixedHeight(22)
+        tb_layout.addWidget(version_lbl)
+
+        tb_layout.addStretch(1)
+
+        # Sparkles icon on right
+        if HAS_SVG:
+            spark_lbl = QLabel()
+            spark_lbl.setFixedSize(24, 24)
+            pix2 = get_svg_icon("sparkles", size=QSize(20, 20), color="#4f46e5").pixmap(QSize(20, 20))
+            spark_lbl.setPixmap(pix2)
+            spark_lbl.setAlignment(Qt.AlignCenter)
+            tb_layout.addWidget(spark_lbl)
+
+        parent_layout.addWidget(title_bar)
+
+    def init_status_bar(self, parent_layout):
+        """Stylish bottom status bar."""
+        status_bar = QFrame()
+        status_bar.setObjectName("statusBar")
+        status_bar.setFixedHeight(30)
+        sb_layout = QHBoxLayout(status_bar)
+        sb_layout.setContentsMargins(16, 0, 16, 0)
+        sb_layout.setSpacing(16)
+
+        # Dot indicator
+        self.status_dot = QLabel("●")
+        self.status_dot.setStyleSheet("color: #1a3a5e; font-size: 10px;")
+        self.status_dot.setFixedWidth(14)
+        sb_layout.addWidget(self.status_dot)
+
+        self.status_label = QLabel("Sẵn sàng · Kéo và thả video vào màn hình để bắt đầu")
+        self.status_label.setObjectName("statusLabel")
+        sb_layout.addWidget(self.status_label)
+
+        sb_layout.addStretch(1)
+
+        # Right side: credit
+        credit_lbl = QLabel("Made with ♥ by Kath")
+        credit_lbl.setObjectName("statusLabel")
+        credit_lbl.setStyleSheet("color: #1e3050; font-size: 11px;")
+        sb_layout.addWidget(credit_lbl)
+
+        parent_layout.addWidget(status_bar)
+
+    def set_status(self, message: str, active: bool = False):
+        """Update the status bar message."""
+        if hasattr(self, 'status_label'):
+            self.status_label.setText(message)
+        if hasattr(self, 'status_dot'):
+            color = "#10b981" if active else "#4a6a9a"
+            self.status_dot.setStyleSheet(f"color: {color}; font-size: 10px;")
 
     def init_left_sidebar(self):
         self.left_frame = QFrame(self)
         self.left_frame.setObjectName("sidebarPanel")
         
         layout = QVBoxLayout(self.left_frame)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(12, 14, 12, 12)
         layout.setSpacing(10)
 
+        # Header row with icon
+        header_row = QHBoxLayout()
+        header_row.setSpacing(6)
+        if HAS_SVG:
+            hdr_icon = QLabel()
+            hdr_icon.setFixedSize(16, 16)
+            hdr_icon.setPixmap(get_svg_icon("layers", size=QSize(14, 14), color="#4a6a9a").pixmap(QSize(14, 14)))
+            header_row.addWidget(hdr_icon)
         lbl_header = QLabel("DANH SÁCH FRAME", self)
         lbl_header.setObjectName("panelHeader")
-        layout.addWidget(lbl_header)
+        header_row.addWidget(lbl_header)
+        header_row.addStretch()
+        layout.addLayout(header_row)
 
         # Sidebar frame manipulation buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(6)
         
-        self.btn_select_all = QPushButton(" Chọn Hết" if HAS_SVG else "✓ Chọn Hết", self)
-        self.btn_select_all.setIcon(get_svg_icon("check_all", size=QSize(16, 16), color="#818cf8"))
+        self.btn_select_all = QPushButton(" Chọn Hết", self)
+        self.btn_select_all.setIcon(get_svg_icon("check_all", size=QSize(15, 15), color="#10b981"))
+        self.btn_select_all.setToolTip("Chọn tất cả frames")
         self.btn_select_all.clicked.connect(self.select_all_frames)
         btn_layout.addWidget(self.btn_select_all)
         
-        self.btn_deselect_all = QPushButton(" Bỏ Chọn" if HAS_SVG else "☐ Bỏ Chọn", self)
-        self.btn_deselect_all.setIcon(get_svg_icon("uncheck_all", size=QSize(16, 16), color="#94a3b8"))
+        self.btn_deselect_all = QPushButton(" Bỏ Chọn", self)
+        self.btn_deselect_all.setIcon(get_svg_icon("uncheck_all", size=QSize(15, 15), color="#94a3b8"))
+        self.btn_deselect_all.setToolTip("Bỏ chọn tất cả frames")
         self.btn_deselect_all.clicked.connect(self.deselect_all_frames)
         btn_layout.addWidget(self.btn_deselect_all)
         
@@ -246,9 +363,10 @@ class MainWindow(QMainWindow):
         self.frames_list_widget.itemClicked.connect(self.on_frame_item_clicked)
         layout.addWidget(self.frames_list_widget)
 
-        # Stats info
-        self.lbl_frames_count = QLabel("Tổng số frame: 0", self)
-        self.lbl_frames_count.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        # Frame count badge
+        self.lbl_frames_count = QLabel("0 frames", self)
+        self.lbl_frames_count.setObjectName("frameCountBadge")
+        self.lbl_frames_count.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.lbl_frames_count)
 
     def init_center_panel(self):
@@ -256,35 +374,65 @@ class MainWindow(QMainWindow):
         self.center_frame.setObjectName("centerPanel")
         
         layout = QVBoxLayout(self.center_frame)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(12, 14, 12, 12)
         layout.setSpacing(10)
 
-        # Video Title / Status
-        self.lbl_video_title = QLabel("HÃY CHỌN MỘT VIDEO ĐỂ BẮT ĐẦU", self)
+        # Video Title / Status (header row)
+        header_row = QHBoxLayout()
+        header_row.setSpacing(6)
+        if HAS_SVG:
+            hdr_icon = QLabel()
+            hdr_icon.setFixedSize(16, 16)
+            hdr_icon.setPixmap(get_svg_icon("image", size=QSize(14, 14), color="#4a6a9a").pixmap(QSize(14, 14)))
+            header_row.addWidget(hdr_icon)
+        self.lbl_video_title = QLabel("PREVIEW", self)
         self.lbl_video_title.setObjectName("panelHeader")
-        self.lbl_video_title.setAlignment(Qt.AlignCenter)
         self.lbl_video_title.setWordWrap(True)
-        layout.addWidget(self.lbl_video_title)
+        header_row.addWidget(self.lbl_video_title)
+        header_row.addStretch()
+        layout.addLayout(header_row)
 
         # Large display area
         self.preview_label = AspectRatioPixmapLabel(self)
-        self.preview_label.setStyleSheet("background-color: #0c0c14; border: 1px solid #334155; border-radius: 8px;")
-        self.preview_label.setMinimumSize(400, 300)
-        layout.addWidget(self.preview_label, 1) # Expand factor 1
+        self.preview_label.setStyleSheet(
+            "background-color: #060c18;"
+            "border: 1px solid #1a2d4a;"
+            "border-radius: 12px;"
+        )
+        self.preview_label.setMinimumSize(420, 300)
+        layout.addWidget(self.preview_label, 1)
 
-        # Control overlay (Timeline slider)
+        # Drop hint text (shown when no video)
+        self.drop_hint = QLabel("🎬  Kéo & Thả video vào đây hoặc dùng 'Chọn Video'", self)
+        self.drop_hint.setObjectName("dropHintLabel")
+        self.drop_hint.setAlignment(Qt.AlignCenter)
+        self.drop_hint.setWordWrap(True)
+        layout.addWidget(self.drop_hint)
+
+        # Timeline Slider
+        slider_row = QHBoxLayout()
+        slider_row.setSpacing(8)
+        if HAS_SVG:
+            clock_lbl = QLabel()
+            clock_lbl.setFixedSize(16, 16)
+            clock_lbl.setPixmap(get_svg_icon("clock", size=QSize(14, 14), color="#2a4468").pixmap(QSize(14, 14)))
+            slider_row.addWidget(clock_lbl)
         self.timeline_slider = QSlider(Qt.Horizontal, self)
         self.timeline_slider.setRange(0, 0)
         self.timeline_slider.sliderMoved.connect(self.on_timeline_scrubbed)
-        layout.addWidget(self.timeline_slider)
+        self.timeline_slider.setToolTip("Kéo để di chuyển qua các frame")
+        slider_row.addWidget(self.timeline_slider)
+        layout.addLayout(slider_row)
 
         # Playback controls
         playback_layout = QHBoxLayout()
-        playback_layout.setSpacing(10)
+        playback_layout.setSpacing(8)
         playback_layout.setAlignment(Qt.AlignCenter)
 
         self.btn_prev = QPushButton(self)
-        self.btn_prev.setFixedSize(40, 32)
+        self.btn_prev.setObjectName("iconButton")
+        self.btn_prev.setFixedSize(40, 36)
+        self.btn_prev.setToolTip("Frame trước")
         if HAS_SVG:
             self.btn_prev.setIcon(get_svg_icon("prev", size=QSize(16, 16), color="#818cf8"))
         else:
@@ -292,15 +440,18 @@ class MainWindow(QMainWindow):
         self.btn_prev.clicked.connect(self.prev_frame)
         playback_layout.addWidget(self.btn_prev)
 
-        self.btn_play = QPushButton(" Chạy" if HAS_SVG else "▶ Chạy", self)
-        self.btn_play.setObjectName("primaryButton")
+        self.btn_play = QPushButton(" Phát" if HAS_SVG else "▶ Phát", self)
+        self.btn_play.setObjectName("playButton")
         self.btn_play.setIcon(get_svg_icon("play", size=QSize(16, 16), color="#ffffff"))
-        self.btn_play.setFixedSize(120, 32)
+        self.btn_play.setFixedSize(130, 36)
+        self.btn_play.setToolTip("Phát / Tạm dừng preview")
         self.btn_play.clicked.connect(self.toggle_play_preview)
         playback_layout.addWidget(self.btn_play)
 
         self.btn_next = QPushButton(self)
-        self.btn_next.setFixedSize(40, 32)
+        self.btn_next.setObjectName("iconButton")
+        self.btn_next.setFixedSize(40, 36)
+        self.btn_next.setToolTip("Frame tiếp theo")
         if HAS_SVG:
             self.btn_next.setIcon(get_svg_icon("next", size=QSize(16, 16), color="#818cf8"))
         else:
@@ -311,32 +462,44 @@ class MainWindow(QMainWindow):
         layout.addLayout(playback_layout)
 
         # Status of preview
-        self.lbl_preview_status = QLabel("Frame: 0/0 | Time: 0.00s", self)
+        self.lbl_preview_status = QLabel("Frame: 0/0  ·  Thời gian: 0.00s", self)
         self.lbl_preview_status.setAlignment(Qt.AlignCenter)
-        self.lbl_preview_status.setStyleSheet("color: #cbd5e1;")
+        self.lbl_preview_status.setStyleSheet("color: #2a4468; font-size: 11px; font-weight: 500;")
         layout.addWidget(self.lbl_preview_status)
 
     def update_play_button_state(self, playing):
         if playing:
-            self.btn_play.setText(" Tạm Dừng" if HAS_SVG else "⏸ Tạm Dừng")
+            self.btn_play.setText(" Tạm Dừng")
             self.btn_play.setIcon(get_svg_icon("pause", size=QSize(16, 16), color="#ffffff"))
+            self.set_status("Đang phát preview...", active=True)
         else:
-            self.btn_play.setText(" Chạy" if HAS_SVG else "▶ Chạy")
+            self.btn_play.setText(" Phát")
             self.btn_play.setIcon(get_svg_icon("play", size=QSize(16, 16), color="#ffffff"))
+            self.set_status("Đã dừng preview.", active=False)
 
     def init_right_panel(self):
         self.right_frame = QFrame(self)
         self.right_frame.setObjectName("rightPanel")
         
         layout = QVBoxLayout(self.right_frame)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(12, 14, 12, 12)
         layout.setSpacing(10)
 
+        # Header with icon
+        header_row = QHBoxLayout()
+        header_row.setSpacing(6)
+        if HAS_SVG:
+            hdr_icon = QLabel()
+            hdr_icon.setFixedSize(16, 16)
+            hdr_icon.setPixmap(get_svg_icon("settings", size=QSize(14, 14), color="#4a6a9a").pixmap(QSize(14, 14)))
+            header_row.addWidget(hdr_icon)
         lbl_header = QLabel("BẢNG CHỨC NĂNG", self)
         lbl_header.setObjectName("panelHeader")
-        layout.addWidget(lbl_header)
+        header_row.addWidget(lbl_header)
+        header_row.addStretch()
+        layout.addLayout(header_row)
 
-        # Scroll Area for responsive controls layout
+        # Scroll Area
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("background-color: transparent; border: none;")
@@ -346,82 +509,108 @@ class MainWindow(QMainWindow):
         scroll_layout.setContentsMargins(0, 0, 0, 0)
         scroll_layout.setSpacing(12)
 
-        # Group 1: Select Video
-        grp_video = QGroupBox("1. Video Đầu Vào", self)
+        # ── Group 1: Select Video ──────────────────────────────────────────
+        grp_video = QGroupBox("① Chọn Video Đầu Vào", self)
         video_layout = QVBoxLayout(grp_video)
         video_layout.setSpacing(8)
+        video_layout.setContentsMargins(10, 14, 10, 10)
         
-        self.btn_load_video = QPushButton(" Chọn Video..." if HAS_SVG else "🎥 Chọn Video...", self)
+        self.btn_load_video = QPushButton("  Chọn Video...", self)
         self.btn_load_video.setObjectName("primaryButton")
-        self.btn_load_video.setIcon(get_svg_icon("video", size=QSize(16, 16), color="#ffffff"))
+        self.btn_load_video.setIcon(get_svg_icon("folder_open", size=QSize(16, 16), color="#ffffff"))
+        self.btn_load_video.setToolTip("Mở hộp thoại chọn file video")
         self.btn_load_video.clicked.connect(self.browse_video)
         video_layout.addWidget(self.btn_load_video)
 
         self.lbl_video_path = QLabel("Chưa chọn file", self)
         self.lbl_video_path.setWordWrap(True)
-        self.lbl_video_path.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.lbl_video_path.setStyleSheet(
+            "color: #2a4468; font-size: 11px; padding: 2px 0px;"
+        )
         video_layout.addWidget(self.lbl_video_path)
 
-        self.lbl_video_meta = QLabel("Thời lượng: --\nĐộ phân giải: --\nFPS gốc: --", self)
-        self.lbl_video_meta.setStyleSheet("color: #e2e8f0; font-size: 12px;")
-        video_layout.addWidget(self.lbl_video_meta)
+        # InfoBox for video metadata
+        self.info_box = QFrame()
+        self.info_box.setObjectName("infoBox")
+        info_box_layout = QVBoxLayout(self.info_box)
+        info_box_layout.setContentsMargins(8, 8, 8, 8)
+        info_box_layout.setSpacing(4)
+
+        self.lbl_video_meta = QLabel("Thời lượng: --  ·  Độ phân giải: --  ·  FPS: --", self)
+        self.lbl_video_meta.setWordWrap(True)
+        self.lbl_video_meta.setStyleSheet(
+            "color: #4a6a9a; font-size: 11px; line-height: 1.6;"
+        )
+        info_box_layout.addWidget(self.lbl_video_meta)
+        video_layout.addWidget(self.info_box)
         
         scroll_layout.addWidget(grp_video)
 
-        # Group 2: Frame Extraction Setup
-        self.grp_slice = QGroupBox("2. Trích Xuất Frame", self)
+        # ── Group 2: Frame Extraction ──────────────────────────────────────
+        self.grp_slice = QGroupBox("② Trích Xuất Frame", self)
         self.grp_slice.setEnabled(False)
         slice_layout = QVBoxLayout(self.grp_slice)
         slice_layout.setSpacing(8)
+        slice_layout.setContentsMargins(10, 14, 10, 10)
 
         grid_layout = QHBoxLayout()
-        self.lbl_start = QLabel("Bắt đầu (s):", self)
+        lbl_start = QLabel("Bắt đầu (s):", self)
+        lbl_start.setStyleSheet("color: #64748b; font-size: 12px;")
         self.spin_start = QSpinBox(self)
         self.spin_start.setRange(0, 99999)
         self.spin_start.setValue(0)
-        grid_layout.addWidget(self.lbl_start)
+        self.spin_start.setToolTip("Thời điểm bắt đầu cắt (giây)")
+        grid_layout.addWidget(lbl_start)
         grid_layout.addWidget(self.spin_start)
         slice_layout.addLayout(grid_layout)
 
         grid_layout2 = QHBoxLayout()
-        self.lbl_end = QLabel("Kết thúc (s):", self)
+        lbl_end = QLabel("Kết thúc (s):", self)
+        lbl_end.setStyleSheet("color: #64748b; font-size: 12px;")
         self.spin_end = QSpinBox(self)
         self.spin_end.setRange(0, 99999)
         self.spin_end.setValue(10)
-        grid_layout2.addWidget(self.lbl_end)
+        self.spin_end.setToolTip("Thời điểm kết thúc cắt (giây)")
+        grid_layout2.addWidget(lbl_end)
         grid_layout2.addWidget(self.spin_end)
         slice_layout.addLayout(grid_layout2)
 
         grid_layout3 = QHBoxLayout()
-        self.lbl_fps = QLabel("Tần suất (FPS):", self)
+        lbl_fps = QLabel("FPS trích xuất:", self)
+        lbl_fps.setStyleSheet("color: #64748b; font-size: 12px;")
         self.spin_fps = QSpinBox(self)
         self.spin_fps.setRange(1, 60)
         self.spin_fps.setValue(10)
         self.spin_fps.setToolTip("Số lượng frame trích xuất trên 1 giây video")
-        grid_layout3.addWidget(self.lbl_fps)
+        grid_layout3.addWidget(lbl_fps)
         grid_layout3.addWidget(self.spin_fps)
         slice_layout.addLayout(grid_layout3)
 
-        self.btn_extract = QPushButton(" Trích Xuất Frame" if HAS_SVG else "✂ Trích Xuất Frame", self)
+        self.btn_extract = QPushButton("  Trích Xuất Frame", self)
         self.btn_extract.setObjectName("primaryButton")
         self.btn_extract.setIcon(get_svg_icon("scissors", size=QSize(16, 16), color="#ffffff"))
+        self.btn_extract.setToolTip("Bắt đầu trích xuất frames từ video")
         self.btn_extract.clicked.connect(self.start_frame_extraction)
         slice_layout.addWidget(self.btn_extract)
 
         scroll_layout.addWidget(self.grp_slice)
 
-        # Group 3: GIF Output Config
-        self.grp_gif = QGroupBox("3. Thiết Lập Ảnh GIF", self)
+        # ── Group 3: GIF Output Config ─────────────────────────────────────
+        self.grp_gif = QGroupBox("③ Thiết Lập GIF", self)
         self.grp_gif.setEnabled(False)
         gif_layout = QVBoxLayout(self.grp_gif)
         gif_layout.setSpacing(8)
+        gif_layout.setContentsMargins(10, 14, 10, 10)
 
-        # Mode radio selector (Simple vs Advanced)
+        # Mode radio selector
         mode_layout = QHBoxLayout()
-        self.rad_simple = QRadioButton("Cơ bản", self)
+        mode_layout.setSpacing(12)
+        self.rad_simple = QRadioButton("  Cơ bản", self)
         self.rad_simple.setChecked(True)
+        self.rad_simple.setToolTip("Chế độ đơn giản: chọn tốc độ và kích thước")
         self.rad_simple.toggled.connect(self.on_gif_mode_changed)
-        self.rad_advanced = QRadioButton("Nâng cao", self)
+        self.rad_advanced = QRadioButton("  Nâng cao", self)
+        self.rad_advanced.setToolTip("Chế độ nâng cao: tùy chỉnh chi tiết từng tham số")
         mode_layout.addWidget(self.rad_simple)
         mode_layout.addWidget(self.rad_advanced)
         gif_layout.addLayout(mode_layout)
@@ -433,34 +622,40 @@ class MainWindow(QMainWindow):
         simple_lay.setSpacing(8)
 
         grid_speed = QHBoxLayout()
-        grid_speed.addWidget(QLabel("Tốc độ:", self))
+        lbl_speed = QLabel("Tốc độ:", self)
+        lbl_speed.setStyleSheet("color: #64748b; font-size: 12px;")
+        grid_speed.addWidget(lbl_speed)
         self.combo_speed = QComboBox(self)
+        self.combo_speed.setToolTip("Chọn tốc độ phát GIF")
         self.combo_speed.addItems([
-            "Bình thường (1.0x)",
-            "Nhanh một chút (1.25x)",
-            "Nhanh (1.5x)",
-            "Nhanh hơn (1.75x)",
-            "Nhanh gấp đôi (2.0x)",
-            "Nhanh gấp ba (3.0x)",
-            "Chậm một chút (0.75x)",
-            "Chậm một nửa (0.5x)",
-            "Chậm hơn nữa (0.25x)"
+            "⚡ Bình thường (1.0x)",
+            "🐇 Nhanh hơn (1.25x)",
+            "🐇 Nhanh (1.5x)",
+            "🐇 Rất nhanh (1.75x)",
+            "🐇 Nhanh x2 (2.0x)",
+            "⚡ Nhanh x3 (3.0x)",
+            "🐢 Chậm hơn (0.75x)",
+            "🐢 Chậm x0.5 (0.5x)",
+            "🐢 Rất chậm (0.25x)"
         ])
-        self.combo_speed.setCurrentIndex(0) # Default 1.0x
+        self.combo_speed.setCurrentIndex(0)
         self.combo_speed.currentIndexChanged.connect(self.on_simple_speed_changed)
         grid_speed.addWidget(self.combo_speed)
         simple_lay.addLayout(grid_speed)
 
         grid_size = QHBoxLayout()
-        grid_size.addWidget(QLabel("Kích thước:", self))
+        lbl_size = QLabel("Kích thước:", self)
+        lbl_size.setStyleSheet("color: #64748b; font-size: 12px;")
+        grid_size.addWidget(lbl_size)
         self.combo_size = QComboBox(self)
+        self.combo_size.setToolTip("Chọn kích thước output GIF")
         self.combo_size.addItems([
-            "Độ phân giải gốc",
-            "Vừa (Rộng 720px)",
-            "Nhỏ (Rộng 480px)",
-            "Siêu nhỏ (Rộng 320px)"
+            "📐 Độ phân giải gốc",
+            "📐 Vừa (720px)",
+            "📐 Nhỏ (480px)",
+            "📐 Siêu nhỏ (320px)"
         ])
-        self.combo_size.setCurrentIndex(0) # Default Original
+        self.combo_size.setCurrentIndex(0)
         grid_size.addWidget(self.combo_size)
         simple_lay.addLayout(grid_size)
 
@@ -473,59 +668,73 @@ class MainWindow(QMainWindow):
         advanced_lay.setSpacing(8)
 
         grid_layout4 = QHBoxLayout()
-        grid_layout4.addWidget(QLabel("Chiều rộng (px):", self))
+        lbl_w = QLabel("Chiều rộng (px):", self)
+        lbl_w.setStyleSheet("color: #64748b; font-size: 12px;")
+        grid_layout4.addWidget(lbl_w)
         self.spin_gif_w = QSpinBox(self)
         self.spin_gif_w.setRange(0, 3840)
         self.spin_gif_w.setValue(480)
         self.spin_gif_w.setSpecialValueText("Gốc")
+        self.spin_gif_w.setToolTip("Chiều rộng GIF xuất ra (0 = giữ nguyên)")
         grid_layout4.addWidget(self.spin_gif_w)
         advanced_lay.addLayout(grid_layout4)
 
         grid_layout5 = QHBoxLayout()
-        grid_layout5.addWidget(QLabel("Chiều cao (px):", self))
+        lbl_h = QLabel("Chiều cao (px):", self)
+        lbl_h.setStyleSheet("color: #64748b; font-size: 12px;")
+        grid_layout5.addWidget(lbl_h)
         self.spin_gif_h = QSpinBox(self)
         self.spin_gif_h.setRange(0, 2160)
         self.spin_gif_h.setValue(0)
         self.spin_gif_h.setSpecialValueText("Tự động")
+        self.spin_gif_h.setToolTip("Chiều cao GIF xuất ra (0 = tự tính tỉ lệ)")
         grid_layout5.addWidget(self.spin_gif_h)
         advanced_lay.addLayout(grid_layout5)
 
         grid_layout6 = QHBoxLayout()
-        grid_layout6.addWidget(QLabel("Độ trễ (ms):", self))
+        lbl_delay = QLabel("Độ trễ (ms):", self)
+        lbl_delay.setStyleSheet("color: #64748b; font-size: 12px;")
+        grid_layout6.addWidget(lbl_delay)
         self.spin_delay = QSpinBox(self)
         self.spin_delay.setRange(10, 5000)
         self.spin_delay.setValue(100)
+        self.spin_delay.setToolTip("Thời gian hiển thị mỗi frame (ms). Nhỏ hơn = nhanh hơn")
         self.spin_delay.valueChanged.connect(self.on_delay_changed)
         grid_layout6.addWidget(self.spin_delay)
         advanced_lay.addLayout(grid_layout6)
 
         grid_layout7 = QHBoxLayout()
-        grid_layout7.addWidget(QLabel("Lặp lại:", self))
+        lbl_loop = QLabel("Số vòng lặp:", self)
+        lbl_loop.setStyleSheet("color: #64748b; font-size: 12px;")
+        grid_layout7.addWidget(lbl_loop)
         self.spin_loop = QSpinBox(self)
         self.spin_loop.setRange(-1, 999)
         self.spin_loop.setValue(0)
-        self.spin_loop.setSpecialValueText("Vô hạn")
+        self.spin_loop.setSpecialValueText("∞ Vô hạn")
+        self.spin_loop.setToolTip("Số lần lặp lại GIF (0 = vô hạn)")
         grid_layout7.addWidget(self.spin_loop)
         advanced_lay.addLayout(grid_layout7)
 
         gif_layout.addWidget(self.advanced_widget)
-
-        # Hide advanced by default
         self.advanced_widget.setVisible(False)
 
         scroll_layout.addWidget(self.grp_gif)
 
-        # Export block at the bottom
-        self.btn_export = QPushButton(" XUẤT GIF CHẤT LƯỢNG CAO" if HAS_SVG else "📥 XUẤT GIF CHẤT LƯỢNG CAO", self)
+        scroll_layout.addStretch(1)
+
+        # ── Export Button (full width, prominent green) ────────────────────
+        self.btn_export = QPushButton("  ✦  XUẤT GIF CHẤT LƯỢNG CAO", self)
         self.btn_export.setEnabled(False)
-        self.btn_export.setObjectName("primaryButton")
-        self.btn_export.setIcon(get_svg_icon("export", size=QSize(18, 18), color="#ffffff"))
+        self.btn_export.setObjectName("exportButton")
+        self.btn_export.setIcon(get_svg_icon("zap", size=QSize(18, 18), color="#ffffff"))
+        self.btn_export.setToolTip("Xuất GIF với chất lượng tối ưu từ các frame đã chọn")
         self.btn_export.clicked.connect(self.export_gif)
         scroll_layout.addWidget(self.btn_export)
 
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
+        self.progress_bar.setTextVisible(True)
         scroll_layout.addWidget(self.progress_bar)
 
         scroll.setWidget(scroll_content)
@@ -549,15 +758,18 @@ class MainWindow(QMainWindow):
             self.update_play_button_state(False)
             
         self.video_path = file_path
-        self.lbl_video_path.setText(os.path.basename(file_path))
-        self.lbl_video_title.setText(os.path.basename(file_path).upper())
+        fname = os.path.basename(file_path)
+        self.lbl_video_path.setText(fname)
+        self.lbl_video_title.setText(fname.upper()[:60] + ("..." if len(fname) > 60 else ""))
+        self.drop_hint.setVisible(False)
+        self.set_status(f"Đang tải thông tin: {fname}", active=True)
         
         # Clear existing frames
         self.all_frames.clear()
         self.frames_list_widget.clear()
         self.current_frame = None
         self.display_frame(None)
-        self.lbl_frames_count.setText("Tổng số frame: 0")
+        self.lbl_frames_count.setText("0 frames")
         self.timeline_slider.setRange(0, 0)
         self.timeline_slider.setValue(0)
         self.grp_gif.setEnabled(False)
@@ -616,18 +828,19 @@ class MainWindow(QMainWindow):
     def on_video_info_ready(self, info):
         self.video_info = info
         self.lbl_video_meta.setText(
-            f"Thời lượng: {info['duration']:.2f}s\n"
-            f"Độ phân giải: {info['width']}x{info['height']}\n"
-            f"FPS gốc: {info['fps']:.2f}"
+            f"⏱ Thời lượng: {info['duration']:.2f}s     "
+            f"📐 {info['width']}×{info['height']}     "
+            f"🎞 {info['fps']:.1f} FPS"
         )
         # Configure slice parameters
         duration_sec = int(info['duration'])
         self.spin_start.setRange(0, duration_sec)
         self.spin_end.setRange(0, duration_sec + 1)
         self.spin_start.setValue(0)
-        self.spin_end.setValue(min(10, duration_sec)) # default 10 seconds slice
+        self.spin_end.setValue(min(10, duration_sec))
         
         self.grp_slice.setEnabled(True)
+        self.set_status(f"Video đã tải · {info['width']}×{info['height']} · {info['fps']:.1f}FPS · {info['duration']:.1f}s", active=False)
 
     # --- Frame Extraction ---
     def start_frame_extraction(self):
@@ -688,10 +901,11 @@ class MainWindow(QMainWindow):
         self.frames_list_widget.setItemWidget(item, card)
 
         # Update stats
-        self.lbl_frames_count.setText(f"Tổng số frame: {len(self.all_frames)}")
+        count = len(self.all_frames)
+        self.lbl_frames_count.setText(f"{count} frames")
         
         # Select first frame automatically
-        if len(self.all_frames) == 1:
+        if count == 1:
             self.display_frame(frame_data)
             self.current_preview_idx = 0
             self.timeline_slider.setRange(0, 0)
@@ -711,18 +925,23 @@ class MainWindow(QMainWindow):
             self.display_frame(self.all_frames[0])
             self.current_preview_idx = 0
             
-            # Sync target dimensions to input height/width
+            # Sync target dimensions
             self.spin_gif_w.setValue(self.video_info.get("width", 480))
             
-            # Suggest suitable default frame delay based on extraction FPS
+            # Suggest delay based on FPS
             fps = self.spin_fps.value()
             delay_ms = int(1000 / fps) if fps > 0 else 100
             self.spin_delay.setValue(delay_ms)
             
-            # Reset simple mode combo boxes
-            self.combo_speed.setCurrentIndex(0) # Reset to 1.0x (Bình thường)
-            self.combo_size.setCurrentIndex(0)  # Reset to default Original size
+            # Reset combos
+            self.combo_speed.setCurrentIndex(0)
+            self.combo_size.setCurrentIndex(0)
+
+            n = len(self.all_frames)
+            self.lbl_frames_count.setText(f"{n} frames")
+            self.set_status(f"✓ Trích xuất hoàn tất · {n} frames sẵn sàng", active=False)
         else:
+            self.set_status("Không trích xuất được frame nào.", active=False)
             QMessageBox.information(self, "Thông báo", "Không trích xuất được frame nào.")
 
     # --- Frame selection/toggling and deletion ---
@@ -760,7 +979,7 @@ class MainWindow(QMainWindow):
             self.rebuild_frames_list()
 
             # Update stats and timeline slider range
-            self.lbl_frames_count.setText(f"Tổng số frame: {len(self.all_frames)}")
+            self.lbl_frames_count.setText(f"{len(self.all_frames)} frames")
             
             if not self.all_frames:
                 self.btn_export.setEnabled(False)
@@ -1043,12 +1262,15 @@ class MainWindow(QMainWindow):
         self.btn_load_video.setEnabled(True)
         self.btn_extract.setEnabled(True)
 
+        fname = os.path.basename(out_path)
+        self.set_status(f"✓ GIF đã xuất thành công: {fname}", active=False)
+
         QMessageBox.information(
             self,
-            "Thành Công",
-            f"GIF đã được xuất thành công tại:\n{out_path}"
+            "✓ Xuất GIF Thành Công",
+            f"GIF đã được lưu thành công!\n\n📁 {out_path}"
         )
-        # Open containing folder and select the file in Windows Explorer
+        # Open containing folder
         try:
             import subprocess
             norm_path = os.path.normpath(out_path)
@@ -1064,6 +1286,7 @@ class MainWindow(QMainWindow):
         self.btn_export.setEnabled(True)
         self.btn_load_video.setEnabled(True)
         self.btn_extract.setEnabled(True)
+        self.set_status(f"⚠ Lỗi: {err_msg[:80]}", active=False)
         QMessageBox.critical(self, "Lỗi Hệ Thống", f"Đã xảy ra lỗi:\n{err_msg}")
 
 
